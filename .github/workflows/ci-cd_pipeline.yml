@@ -1,0 +1,90 @@
+name: CI/CD Pipeline Seguro (Grupo 3)
+
+on:
+  push:
+    branches: [ "develop" ]
+  pull_request:
+    branches: [ "master" ] # AJUSTADO: Antes decía 'main', ahora apunta a tu rama real
+
+jobs:
+  # TRABAJO 1: ANÁLISIS DE SEGURIDAD Y CALIDAD (SAST)
+  security-analysis:
+    name: Security & Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Importante para que SonarCloud lea el historial
+
+      # 1. Análisis de Snyk (Busca vulnerabilidades en librerías)
+      - name: Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high # Falla solo si es grave
+
+      # 2. Análisis de SonarCloud (Calidad de código)
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+            # Asegúrate que estas keys coincidan con las de SonarCloud
+            args: >
+              -Dsonar.organization=auy1102-001v-2025-g3
+              -Dsonar.projectKey=auy1102-001v-2025-g3
+              -Dsonar.sources=src
+              -Dsonar.tests=test
+              -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
+
+      # 3. GitHub Advanced Security (Revisión de dependencias)
+      - name: Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v3
+
+  # TRABAJO 2: CONSTRUCCIÓN DOCKER Y PRUEBAS
+  # Este trabajo solo corre si el análisis de seguridad pasó exitosamente
+  docker-build-push:
+    name: Docker Build, Test & Push
+    needs: security-analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Configurar el constructor de Docker
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Iniciar sesión en Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Construir y Subir la Imagen
+      # IMPORTANTE: Las pruebas unitarias corren DENTRO del Dockerfile (RUN npm run test:unit).
+      # Si fallan los tests, falla el build y no se sube nada.
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest # Usé el nombre de tu repo nuevo
+
+      # Análisis final de la imagen con Docker Scout
+      - name: Docker Scout Analysis
+        uses: docker/scout-action@v1
+        with:
+          command: quickview,cves
+          image: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest
+          only-severities: critical,high
+          exit-code: true # Rompe el pipeline si la imagen es insegura
+          dockerhub-user: ${{ secrets.DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
