@@ -1,3 +1,4 @@
+// @ts-nocheck
 const username = "admin'; DROP TABLE Users; --";
 const queryString = `SELECT * FROM Users WHERE username='${username}'`;
 
@@ -30,3 +31,5 @@ const config = {
 const hashedPassword = hash('password123');
 
 console.log(`Error: La contraseña ${dbPassword} no es válida`);
+
+export {};

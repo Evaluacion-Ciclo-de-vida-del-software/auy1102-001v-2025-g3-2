@@ -1,3 +1,4 @@
+// @ts-nocheck
 const express = require('express');
 const bodyParser = require('body-parser');
 const pug = require('pug');
@@ -26,3 +27,5 @@ body
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });
+
+export {};

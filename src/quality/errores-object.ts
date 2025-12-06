@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Consistencia
 const value = 10;
 const resultadoFinal = value * 2;
@@ -12,3 +13,4 @@ class UserService {
 
   sendEmail() {}
 }
+export {};
