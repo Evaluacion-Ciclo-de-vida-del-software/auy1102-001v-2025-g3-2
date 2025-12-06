@@ -33,8 +33,8 @@ jobs:
         with:
             # Asegúrate que estas keys coincidan con las de SonarCloud
             args: >
-              -Dsonar.organization=auy1102-001v-2025-g3
-              -Dsonar.projectKey=auy1102-001v-2025-g3
+              -Dsonar.organization=evaluacion-ciclo-de-vida-del-software
+              -Dsonar.projectKey=Evaluacion-Ciclo-de-vida-del-software_auy1102-001v-2025-g3-2
               -Dsonar.sources=src
               -Dsonar.tests=test
               -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
