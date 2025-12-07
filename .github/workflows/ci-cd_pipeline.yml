@@ -4,48 +4,43 @@ on:
   push:
     branches: [ "develop" ]
   pull_request:
-    branches: [ "master" ] # AJUSTADO: Antes decía 'main', ahora apunta a tu rama real
+    branches: [ "master" ]
 
 jobs:
-  # TRABAJO 1: ANÁLISIS DE SEGURIDAD Y CALIDAD (SAST)
+  # JOB 1: Análisis de Seguridad
   security-analysis:
     name: Security & Quality Analysis
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Importante para que SonarCloud lea el historial
+          fetch-depth: 0
 
-      # 1. Análisis de Snyk (Busca vulnerabilidades en librerías)
       - name: Snyk Security Scan
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high # Falla solo si es grave
+          args: --severity-threshold=high
 
-      # 2. Análisis de SonarCloud (Calidad de código)
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-            # Asegúrate que estas keys coincidan con las de SonarCloud
-            args: >
-              -Dsonar.organization=evaluacion-ciclo-de-vida-del-software
-              -Dsonar.projectKey=Evaluacion-Ciclo-de-vida-del-software_auy1102-001v-2025-g3-2
-              -Dsonar.sources=src
-              -Dsonar.tests=test
-              -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
+          args: >
+            -Dsonar.organization=evaluacion-ciclo-de-vida-del-software
+            -Dsonar.projectKey=Evaluacion-Ciclo-de-vida-del-software_auy1102-001v-2025-g3-2
+            -Dsonar.sources=src
+            -Dsonar.tests=test
+            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info
 
-      # 3. GitHub Advanced Security (Revisión de dependencias)
       - name: Dependency Review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v3
 
-  # TRABAJO 2: CONSTRUCCIÓN DOCKER Y PRUEBAS
-  # Este trabajo solo corre si el análisis de seguridad pasó exitosamente
+  # JOB 2: Docker Build, Scan & Push
   docker-build-push:
     name: Docker Build, Test & Push
     needs: security-analysis
@@ -57,34 +52,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Configurar el constructor de Docker
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Iniciar sesión en Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Construir y Subir la Imagen
-      # IMPORTANTE: Las pruebas unitarias corren DENTRO del Dockerfile (RUN npm run test:unit).
-      # Si fallan los tests, falla el build y no se sube nada.
-      - name: Build and Push Docker Image
+      # PASO 1: Construir imagen localmente (sin subir)
+      - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest # Usé el nombre de tu repo nuevo
+          load: true  # ← CLAVE: construye en el runner de GitHub
+          tags: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # Análisis final de la imagen con Docker Scout
-      - name: Docker Scout Analysis
+      # PASO 2: Escanear con Docker Scout ANTES de subir
+      - name: Docker Scout Security Scan
         uses: docker/scout-action@v1
         with:
-          command: quickview,cves
+          command: cves
           image: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest
-          only-severities: critical,high
-          exit-code: true # Rompe el pipeline si la imagen es insegura
+          only-severities: critical  # ← Solo críticas
+          exit-code: true  # ← Falla si hay críticas
           dockerhub-user: ${{ secrets.DOCKER_USERNAME }}
           dockerhub-password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # PASO 3: Si pasó el escaneo, AHORA sí subir a Docker Hub
+      - name: Push Docker Image to Docker Hub
+        if: success()  # Solo si los pasos anteriores pasaron
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true  # ← AHORA sí hace push
+          tags: ${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

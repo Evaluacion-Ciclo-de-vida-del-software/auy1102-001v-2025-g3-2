@@ -1,41 +1,46 @@
-# Etapa 1: Construcción y Pruebas
-# Usamos una imagen ligera de Node
-FROM node:18-alpine AS builder
-
+# Etapa 1: Construcción
+FROM node:20-alpine3.20 AS builder
 WORKDIR /app
 
-# Copiamos primero los archivos de dependencias (para aprovechar el caché de Docker)
+# Copiamos archivos de dependencias
 COPY package*.json ./
 
-# Instalamos las dependencias de forma limpia
-RUN npm install
+# Instalamos TODAS las dependencias (incluidas dev para tests)
+RUN npm ci --ignore-scripts && \
+    npm cache clean --force
 
-# Copiamos todo el código fuente del repo
+# Copiamos TODO el código (incluyendo jest.setup.js)
 COPY . .
 
-# 1. Ejecutamos el Linter (Calidad)
+# Ejecutamos linter
 RUN npm run lint
 
-# 2. Ejecutamos las Pruebas Unitarias (REQUISITO CRÍTICO DE LA EVALUACIÓN)
-# Si esto falla, la creación de la imagen se detiene aquí.
-RUN npm run test:unit
+# Ejecutamos pruebas unitarias
+RUN npm run test:unit -- --no-cache --runInBand
 
-# 3. Construimos la aplicación (TypeScript -> JavaScript)
+# Construimos la aplicación
 RUN npm run build
 
 # Etapa 2: Imagen Final (Producción)
-# Creamos una imagen nueva y limpia, sin el código fuente pesado, solo lo compilado.
-FROM node:18-alpine
-
+FROM node:20-alpine3.20
 WORKDIR /app
 
-# Copiamos solo lo necesario desde la etapa anterior ("builder")
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
+# Instalar actualizaciones de seguridad
+RUN apk upgrade --no-cache
 
-# Exponemos el puerto (ajustar si tu app usa otro)
+# Crear usuario no-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copiar solo lo necesario para producción
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+
+# Instalar solo dependencias de producción
+RUN npm ci --only=production --ignore-scripts && \
+    npm cache clean --force
+
+USER nodejs
 EXPOSE 3000
 
-# Comando de inicio
 CMD ["node", "dist/index.js"]

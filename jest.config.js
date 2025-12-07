@@ -1,14 +1,26 @@
-// @ts-check
-
 /** @type {import('@jest/types').Config.InitialOptions} */
-const jestConfig = {
+module.exports = {
   displayName: 'pkg-value-object',
-  clearMocks: true,
+  //preset: 'ts-jest',
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/jest.setup.js'],
+
   transform: {
-    '^.+\\.(t|j)sx?$': '@swc/jest',
+    '^.+\\.tsx?$': ['@swc/jest', {
+      jsc: {
+        parser: {
+          syntax: 'typescript',
+          tsx: false,
+        },
+        target: 'es2020',
+        transform: null,
+      },
+      module: {
+        type: 'commonjs',
+      },
+    }],
   },
+  
   collectCoverageFrom: [
     'src/**/*.ts',
     '!**/*.d.ts',
@@ -19,8 +31,8 @@ const jestConfig = {
     '!**/src/config/**',
     '!**/src/structures/**',
   ],
+  
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[tj]s?(x)'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 };
-
-module.exports = jestConfig;
