@@ -1,8 +1,278 @@
-# Github NPM Registry
+**Contexto de la evaluación**:
 
-## About this article
+Esta evaluación, correspondiente al Aseguramiento de la Calidad del Software, se centra en la implementación práctica de un flujo de trabajo automatizado. El ejercicio requiere la construcción de un repositorio que integre un pipeline de Integración y Despliegue Continuo (CI/CD) utilizando GitHub y GitHub Actions. La actividad simula un entorno de desarrollo ágil donde se deben garantizar elementos clave de calidad, desde la contenerización de la aplicación hasta la validación de seguridad antes del despliegue.
 
-GitHub with GitHubActions and GHAS offer an incredible experience for developers around the planet. Just with a few considerations and good ideas we can build a wonderful experience for our development teams, and they just literally "work only on their code"
+**Objetivo del documento**:
+
+El propósito de este documento es evidenciar el diseño y la implementación técnica de los pipelines de CI/CD solicitados, demostrando la capacidad para automatizar la compilación, prueba y despliegue de software.
+
+Este entregable detalla la ejecución práctica realizada para cumplir con los siguientes hitos:
+
+- Automatización y Contenerización: Configuración de GitHub Actions para la construcción de imágenes Docker, ejecución de pruebas unitarias dentro del contenedor y publicación en Docker Hub.
+
+- Análisis Estático de Código: Integración de herramientas como SonarCloud y Snyk en el pipeline para asegurar la calidad del código en cada pull request.
+
+- Seguridad Avanzada y de Contenedores: Implementación de escaneos de seguridad mediante GitHub Advanced Security (dependencias y secretos) y Docker Scout para la detección de vulnerabilidades en las imágenes.
+
+- Control de Flujo de Trabajo: Configuración de reglas de despliegue y bloqueos automáticos ante la detección de problemas críticos de seguridad o calidad.
+
+- **AUTOMATIZACIÓN CON GITHUB ACTIONS Y DOCKER**
+
+**Requerimientos**
+
+- **Dockerizar la App:** Se crea un archivo Dockerfile.
+- **Pipeline CI/CD (GitHub Actions):**
+  - **Disparadores:** se realiza push a la rama develop y pull request a main.
+  - **Pasos:**
+    - Construir una imagen Docker.
+    - Correr pruebas unitarias **dentro** del contenedor.
+    - Si las pruebas pasan -> Subir imagen a **Docker Hub**.
+- **Seguridad (DevSecOps):**
+  - Integrar **SonarCloud** (Análisis estático).
+  - Integrar **Snyk** (Vulnerabilidades).
+  - Integrar **GitHub Advanced Security** (Secretos y dependencias).
+  - Integrar **Docker Scout** (Análisis de imagen).
+  - **Regla de Oro:** El pipeline debe fallar si encuentra errores críticos.
+
+### Etapa 1
+
+Antes de escribir una sola línea de código del pipeline, necesitamos configurar las cuentas y secretos. Sin esto, el pipeline fallará inmediatamente.
+
+#### 1\. Servicios involucrados necesarias
+
+- **Docker Hub:** (<https://hub.docker.com/>) -> Se crea un repositorio público vacío llamado auy1102-g3 (o cualquier nombre que haga alusión).
+- **Snyk:** (<https://snyk.io/>) -> Entrar con la cuenta GitHub.
+- **SonarCloud**.
+
+#### 2\. Configuración Secretos en GitHub
+
+En el repositorio de GitHub -> **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**.
+
+Agrega estos secretos:
+
+- DOCKER_USERNAME: Usuario de Docker Hub.
+- DOCKER_PASSWORD: Contraseña de Docker Hub (o un Access Token).
+- SONAR_TOKEN: El token ya creado de SonarCloud.
+- SNYK_TOKEN: Ir a Snyk -> Account Settings -> API Token -> Copiar.
+
+<img width="1178" height="459" alt="Imagen1" src="https://github.com/user-attachments/assets/4722943e-6568-4394-9b30-3fdda6456d15" />
+
+Ahora que ya se tiene los 4 pilares de seguridad configurados:
+
+- **Docker Hub** (para guardar la app).
+- **SonarCloud** (para calidad de código).
+- **Snyk** (para vulnerabilidades de dependencias).
+- **GitHub Secrets** (para conectar todo).
+
+**3\. Instalación de Dependencias**
+
+<img width="589" height="331" alt="Imagen2" src="https://github.com/user-attachments/assets/bc331afc-76ae-44ee-a956-8fd02705e30e" />
+
+**4\. Creación de la rama develop**
+
+<img width="589" height="147" alt="Imagen3" src="https://github.com/user-attachments/assets/7faecbb6-d6df-4745-a52c-33fe1bcacf14" />
+
+<img width="589" height="63" alt="Imagen4" src="https://github.com/user-attachments/assets/c1d72adf-26b2-4f30-b054-31974a85e5c5" />
+
+Ahora se realiza la contenerización de toda la aplicación actual del repositorio. Se creará una 'imagen' que incluye el código y todo lo necesario para que funcione (librerías y configuración). Esto permitirá aislar la aplicación de la máquina local y prepararla para ser probada y distribuida automáticamente a través del pipeline de CI/CD.
+
+### ¿Qué se está empaquetando exactamente?
+
+Las carpetas src y package.json.
+
+- **El código:** Tiene la lógica de negocio (como sum.js, index.ts, etc.).
+- **Las dependencias:** El package.json dice qué librerías necesita este código para vivir.
+- **Las pruebas:** Tienes los tests unitarios que verifican que el código funcione.
+
+El Dockerfile valida la calidad del software antes de empaquetarlo. Mediante un proceso de dos etapas, el sistema primero ejecuta las pruebas unitarias y compila el código TypeScript; posteriormente, genera una imagen final de producción que es segura y ligera, ya que excluye los archivos fuente originales y las librerías de desarrollo.
+
+**Resumen de la Implementación del pipeline**
+
+Con esto se ha configurado un "guardián automático" para el código. Con este pipeline, cada vez que un desarrollador sube cambios, el sistema realiza automáticamente cuatro tareas críticas:
+
+- **Revisa la seguridad** de las librerías con Snyk y GitHub Advanced Security.
+- **Mide la calidad** del código escrito con SonarCloud.
+- **Empaqueta la aplicación** en un contenedor Docker y ejecuta los tests unitarios dentro de él para confirmar que funciona correctamente.
+- **Sube la imagen** a Docker Hub y la escanea con Docker Scout solo si todas las pruebas anteriores fueron exitosas.
+
+Esta arquitectura cumple con la estrategia de **Shift-Left Security**, detectando fallos y vulnerabilidades en las etapas más tempranas del desarrollo, lo que reduce drásticamente el costo y tiempo de corrección.
+
+<img width="1178" height="181" alt="Imagen30" src="https://github.com/user-attachments/assets/4602a2d3-4bd1-4e36-bc50-811f39798b3c" />
+<img width="589" height="251" alt="Imagen" src="https://github.com/user-attachments/assets/0008f6dd-27aa-4a6d-bc17-9925e9d8e126" />
+<img width="1178" height="205" alt="Imagen" src="https://github.com/user-attachments/assets/0caacaeb-2523-4022-9d0a-1739a4d8e72d" />
+
+### 1\. Requisito: "Integrar el uso de Docker Scout"
+
+Es el último paso del trabajo de Docker.
+
+**Evidencia en el código:**
+
+YAML
+
+\- name: Docker Scout Analysis
+
+uses: docker/scout-action@v1 # <--- Aquí llamamos a la herramienta
+
+with:
+
+command: quickview,cves
+
+image: \${{ secrets.DOCKER_USERNAME }}/auy1102-g3-2:latest
+
+### 2\. Requisito: "Interrumpir el despliegue si se detectan problemas críticos"
+
+Esto es lo más importante. El pipeline está diseñado como una compuerta. Si la seguridad no pasa, el despliegue **se cancela automáticamente**.
+
+Esto se logra de **tres formas** simultáneas en el código:
+
+#### A. El "Muro" entre trabajos (La cláusula needs)
+
+En el archivo YAML, separamos el proceso en dos trabajos: security-analysis y docker-build-push.
+
+En la siguiente línea:
+
+YAML
+
+docker-build-push:
+
+needs: security-analysis # <--- Candado
+
+**¿Qué significa?** El trabajo de Docker (que es el que despliega/sube la imagen) **está obligado a esperar** a que el trabajo de Seguridad termine en VERDE. Si Snyk o SonarCloud encuentran algo grave, el primer trabajo falla (ROJO) y el segundo **ni siquiera arranca**.
+
+#### B. El Freno de Docker Scout
+
+De esta forma se configura Docker Scout para que no solo "informe", sino que **rompa** el proceso si ve peligro.
+
+**La evidencia en el código:**
+
+YAML
+
+only-severities: critical,high # Solo nos importan los errores graves
+
+exit-code: true # <--- Este es el interruptor
+
+- exit-code: true: Significa "Si encuentra vulnerabilidades críticas (Critical/High), **devuelve un error y coloca el pipeline en ROJO**".
+
+#### C. El Freno de Snyk
+
+Lo mismo se realiza con Snyk al principio:
+
+**La evidencia en el código:**
+
+YAML
+
+args: --severity-threshold=high # <--- INTERRUPTOR DE SNYK
+
+- Esto le dice a Snyk: "Si encuentra vulnerabilidades de nivel ALTO, falla el pipeline inmediatamente".
+
+<img width="589" height="299" alt="Imagen" src="https://github.com/user-attachments/assets/88abf5db-bcbe-4ee5-8f57-29575dfe6223" />
+
+Se evidencia que el mecanismo de seguridad (Snyk) bloqueó exitosamente el despliegue al detectar la vulnerabilidad crítica 'Prototype Pollution' en las dependencias, cumpliendo con el criterio de interrupción por fallos de seguridad.
+
+En archivo YAML, se escribe la regla clave en el segundo trabajo (docker-build-push):
+
+YAML
+
+needs: security-analysis
+
+Esto le dice a GitHub: _"No arrancar el motor de Docker hasta que el guardia de seguridad (Snyk/Sonar) dé luz verde"_.
+
+- **Seguridad (Snyk):** Encontró vulnerabilidades críticas -> **Falló (ROJO ❌)**.
+- **Pipeline:** Detiene todo.
+- **Docker:** Fue **OMITIDO (SKIPPED)**. No se descarga la imagen base, no se compiló el código y, lo más importante, **no se subió nada a Docker Hub**.
+
+**Saneamiento de Dependencias y Build**
+
+- **Problema:** El proyecto estaba bloqueado por vulnerabilidades críticas de seguridad en dependencias anidadas y errores de compilación (npm run build) en archivos de prueba.
+- **Solución:**
+  - **Seguridad:** Se implementó una estrategia de **sobrescritura anidada (nested overrides)** en package.json para forzar la actualización de librerías internas vulnerables que no se podían corregir automáticamente.
+  - **Compilación:** Se ajustaron los scripts de calidad (src/quality) agregando export {} para cumplir con los estándares estrictos de TypeScript sin eliminar el código de prueba.
+- **Resultado:** Se obtuvieron **0 vulnerabilidades** en la auditoría y se logró una **compilación exitosa**, habilitando el despliegue seguro en Docker y CI/CD.
+
+<img width="1178" height="165" alt="Imagen" src="https://github.com/user-attachments/assets/2dbf865e-6d6e-480b-861b-935dc1f3791f" />
+
+<img width="1178" height="136" alt="Imagen" src="https://github.com/user-attachments/assets/8a57d2d9-d345-4cf9-9d0b-26718f8bd058" />
+
+<img width="589" height="196" alt="Imagen" src="https://github.com/user-attachments/assets/96b7c2b9-4e9d-46b9-84a0-c45456b9a6b8" />
+
+Ahora se suben los cambios validados al repositorio
+
+<img width="1178" height="459" alt="Imagen" src="https://github.com/user-attachments/assets/a1b0efb7-8571-4cd6-bfdf-d93cab70f7cf" />
+
+<img width="589" height="163" alt="Imagen" src="https://github.com/user-attachments/assets/217f0a13-cec1-4e05-9151-36c632a8308f" />
+
+Probando el pipeline
+
+<img width="589" height="235" alt="Imagen" src="https://github.com/user-attachments/assets/221c29bc-d56b-4675-95b2-37a2f0569fa5" />
+
+Evidencia de funcionamiento:
+
+<img width="1178" height="544" alt="Imagen" src="https://github.com/user-attachments/assets/21e7ff29-e543-4980-bd3f-07b8d3c9782e" />
+
+<img width="589" height="292" alt="Imagen" src="https://github.com/user-attachments/assets/44fa185a-3659-49c3-a142-d978c3dc9a95" />
+
+Ahora vemos que sonar cloud está impidiendo terminar los jobs:
+
+<img width="589" height="296" alt="Imagen" src="https://github.com/user-attachments/assets/0fbb1367-6bc7-4c3e-9fa8-878bc221787f" />
+
+Se corrige los key que ocupa sonnar cloud:
+
+<img width="589" height="147" alt="Imagen" src="https://github.com/user-attachments/assets/58397026-0b99-4eb2-8517-ee7f4d0850e2" />
+
+Se logra pasar la barrera de Seguridad y Calidad (Snyk y SonarCloud están en verde ✅). Ahora se tiene problemas con las pruebas unitarias en del docker.
+
+**Dockerfile** tiene una instrucción para ejecutar los tests unitarios antes de empaquetar la aplicación, y **esos tests están fallando**.
+
+<img width="589" height="292" alt="Imagen" src="https://github.com/user-attachments/assets/8b0c6565-29e3-4f0d-b2a0-0fb1ee8707d6" />
+
+Se revisa que se tenía un test con error:
+
+**Se corrige la lógica del test isEmpty** asignando manualmente un texto vacío ('') en lugar de usar un generador aleatorio, para que el resultado coincida con lo esperado.
+
+**Se valida exitosamente las pruebas en local (18/18 tests en verde)**, confirmando que el error que bloqueaba la construcción de Docker ha desaparecido.
+
+<img width="1178" height="499" alt="Imagen" src="https://github.com/user-attachments/assets/e0df86cf-2f7e-4e14-90c5-00f7ef4bb419" />
+
+<img width="1178" height="413" alt="Imagen" src="https://github.com/user-attachments/assets/153a5f0f-a764-4aa2-8e27-5b1b7efd69e6" />
+
+Se realizan pruebas de forma local para validar que logren pasar cuando se suban los cambios al pipeline:
+
+<img width="589" height="181" alt="Imagen" src="https://github.com/user-attachments/assets/9f85280f-8083-4625-bffc-58aa5a5c7b70" />
+
+<img width="1178" height="293" alt="Imagen" src="https://github.com/user-attachments/assets/83bc3fad-7173-4b39-b5f7-dc03c5207cc1" />
+
+<img width="589" height="239" alt="Imagen" src="https://github.com/user-attachments/assets/5e7fd377-c416-481f-b061-f2e384aeb5be" />
+
+<img width="589" height="152" alt="Imagen" src="https://github.com/user-attachments/assets/9e182eb4-f175-4c19-9d74-29d148d7a2e4" />
+
+**Se reordena el pipeline** para que Docker Scout escanee la imagen **antes** de subirla a Docker Hub, evitando publicar imágenes inseguras.
+
+**Se actualiza el Dockerfile** a node:20-alpine3.20 con usuario no-root y **se arregla Jest** para que los tests funcionen en el contenedor.
+
+- **ANÁLISIS DE CÓDIGO Y SEGURIDAD**
+
+**Implementación de Seguridad y Análisis Estático (DevSecOps)**
+
+Objetivo de la implementación: En cumplimiento con los requerimientos de la Parte 2, se ha diseñado un pipeline que no solo automatiza la integración, sino que actúa como una barrera de calidad y seguridad antes de cualquier despliegue. El objetivo es detectar vulnerabilidades, bugs y deudas técnicas en etapas tempranas (Shift-Left Testing).
+
+**Herramientas integradas:**
+
+**SonarCloud:** Integrado para realizar análisis estático de código (SAST) en cada pull request hacia la rama main. Se configuró para evaluar la mantenibilidad, fiabilidad y seguridad del código fuente. \* Snyk: Implementado para el escaneo de dependencias y código, asegurando que no se introduzcan librerías con vulnerabilidades conocidas (CVEs). \* GitHub Advanced Security: Se habilitaron las funciones de escaneo de secretos (para evitar fugas de credenciales) y análisis de dependencias mediante Dependency Review. \* Docker Scout: Incorporado para analizar la imagen del contenedor construida, buscando vulnerabilidades en el sistema base y las capas de la imagen.
+
+**Política de Calidad:** El pipeline se ha configurado bajo una política de "tolerancia cero" a errores críticos. Si cualquiera de estas herramientas detecta una vulnerabilidad severa o no cumple con el Quality Gate definido, el pipeline fallará automáticamente, interrumpiendo el despliegue para garantizar la integridad del producto.
+
+**SonarCloud:**
+
+<img width="589" height="300" alt="Imagen" src="https://github.com/user-attachments/assets/17d1abfb-6ec2-4c16-9af9-44a9831088a0" />
+
+<img width="589" height="316" alt="Imagen" src="https://github.com/user-attachments/assets/f4c4d9ad-161b-40c7-ba8f-f94079bfea97" />
+
+Se corrige y actualiza las dependencias:
+
+<img width="1178" height="104" alt="Imagen" src="https://github.com/user-attachments/assets/13028c25-6594-4d4e-b36f-988b997ff7d4" />
+
+<img width="910" height="663" alt="Imagen" src="https://github.com/user-attachments/assets/1b8dea6b-f588-4188-b070-eb5d85be4a1a" />
+
 
 ## Using Github NPM Registry - Local Environment
 
