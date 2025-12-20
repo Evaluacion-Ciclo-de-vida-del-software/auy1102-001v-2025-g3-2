@@ -1,3 +1,5 @@
+**NO BORRAR REPO AL MENOS POR UN AÑO, EXPIRES TO: 20-12-2026**
+
 **Contexto de la evaluación**:
 
 Esta evaluación, correspondiente al Aseguramiento de la Calidad del Software, se centra en la implementación práctica de un flujo de trabajo automatizado. El ejercicio requiere la construcción de un repositorio que integre un pipeline de Integración y Despliegue Continuo (CI/CD) utilizando GitHub y GitHub Actions. La actividad simula un entorno de desarrollo ágil donde se deben garantizar elementos clave de calidad, desde la contenerización de la aplicación hasta la validación de seguridad antes del despliegue.
